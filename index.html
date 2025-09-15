@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
   <style>
     :root{
       --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --sub:#64748b; --muted:#e2e8f0; --brand:#6d28d9; --brand-2:#22c55e; --brand-3:#0ea5e9; --danger:#ef4444;
@@ -55,6 +56,10 @@
     .mini h4{margin:0 0 10px}
     .mini p{margin:6px 0;font-size:13px;color:var(--sub)}
     .mini a{color:var(--brand-3);text-decoration:none}
+.line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--muted);}
+.mini .line:first-of-type{border-top:none;}
+.amt-pos{color:var(--brand-2);font-weight:700;}   /* green */
+.amt-neg{color:var(--danger);font-weight:700;}    /* red   */
 
     .danger{color:#991b1b}
     .foot{display:flex;justify-content:center;margin-top:18px}
@@ -150,6 +155,7 @@ import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/1
 
     // 2) People list — edit or fetch from Firestore in future
     const PEOPLE = ['Tayyab','Islam','Mahmur','Guest'];
+    const CURRENCY = '₺'; // change to '$', '€', etc. if you want
 
     // Init
     const app = initializeApp(firebaseConfig);
@@ -249,7 +255,7 @@ tbody.onclick = async (ev) => {
         const tr = el('tr');
         const when = new Date(t.date||Date.now()).toISOString().slice(0,10);
         const badge = t.type==='Expense' ? '<span class="badge expense">Expense</span>' : '<span class="badge payment">Payment</span>';
-        const right = (n)=>`$${Number(n).toFixed(2)}`;
+        const right = (n)=>`${CURRENCY}${Number(n).toFixed(2)}`;
         const toSplit = t.type==='Expense' ? (t.splitBetween||[]).join(', ') : (t.to||'');
         tr.innerHTML = `<td>${when}</td><td>${badge}</td><td>${t.description||''}</td><td class="right">${right(t.amount)}</td><td>${t.paidBy||t.from||''}</td><td>${toSplit}</td><td class="right"><button class="pill danger" data-del="${t.id}">Delete</button></td>`;
 tbody.appendChild(tr);
@@ -270,18 +276,36 @@ tbody.appendChild(tr);
         }
       });
 
-      // Render mini-balance cards
-      const box = $('#balances'); box.innerHTML='';
-      PEOPLE.forEach((p,i)=>{
-        const card = el('div','mini');
-        card.innerHTML = `<h4>${p}</h4>`;
-        PEOPLE.forEach((q,j)=>{
-          if (i===j) return; const val = owes[i][j]-owes[j][i];
-          if (Math.abs(val) < 0.01) return;
-          card.appendChild(el('p',null, val>0 ? `${p} owes ${q}: <b>$${val.toFixed(2)}</b>` : `${q} owes ${p}: <b>$${(-val).toFixed(2)}</b>` ));
-        });
-        box.appendChild(card);
-      });
+      // Render mini-balance cards (friendly phrasing + colors)
+const box = document.querySelector('#balances');
+box.innerHTML = '';
+
+PEOPLE.forEach((p, i) => {
+  const card = el('div','mini');
+  card.innerHTML = `<h4>${p}</h4>`;
+
+  PEOPLE.forEach((q, j) => {
+    if (i === j) return;
+
+    // net > 0  => p owes q
+    // net < 0  => q owes p
+    const net = owes[i][j] - owes[j][i];
+    if (Math.abs(net) < 0.01) return;
+
+    const row = el('div','line');
+    if (net > 0) {
+      // p owes q  (show red)
+      row.innerHTML = `Owes ${q}: <span class="amt-neg">${CURRENCY}${Math.abs(net).toFixed(2)}</span>`;
+    } else {
+      // q owes p  (show green)
+      row.innerHTML = `${q} owes me: <span class="amt-pos">${CURRENCY}${Math.abs(net).toFixed(2)}</span>`;
+    }
+    card.appendChild(row);
+  });
+
+  box.appendChild(card);
+});
+
 
       // Totals by person: weekly + monthly (sum of expenses they paid)
       const byPerson = Object.fromEntries(PEOPLE.map(p=>[p,{week:0,month:0,all:0}]));
@@ -303,9 +327,9 @@ tbody.appendChild(tr);
         const d = byPerson[p];
         const card = el('div','mini');
         card.innerHTML = `<h4>${p}</h4>
-          <p>This week: <b>$${d.week.toFixed(2)}</b></p>
-          <p>This month: <b>$${d.month.toFixed(2)}</b></p>
-          <p>Total paid: <b>$${d.all.toFixed(2)}</b></p>`;
+          <p>This week: <b>${CURRENCY}${d.week.toFixed(2)}</b></p>
+          <p>This month: <b>${CURRENCY}${d.month.toFixed(2)}</b></p>
+          <p>Total paid: <b>${CURRENCY}${d.all.toFixed(2)}</b></p>`;
         totals.appendChild(card);
       });
     });
