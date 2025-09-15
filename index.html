@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Group Expense Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --sub:#64748b; --muted:#e2e8f0; --brand:#6d28d9; --brand-2:#22c55e; --brand-3:#0ea5e9; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    .container{max-width:1100px;margin:28px auto;padding:0 16px}
+    .app{background:var(--card);border-radius:18px;box-shadow:0 10px 30px rgba(2,6,23,.06);padding:22px 22px 28px}
+    .title{font-weight:800;letter-spacing:.2px;text-align:center;margin:4px 0 16px;font-size:26px;color:#5b21b6}
+
+    .tabs{display:flex;gap:8px;justify-content:center;margin:8px 0 18px}
+    .tab{padding:10px 14px;border-radius:999px;border:1px solid var(--muted);background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
+    .tab.active{background:var(--brand);color:#fff;border-color:transparent}
+
+    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+    .card{background:#fff;border:1px solid var(--muted);border-radius:12px;padding:16px}
+    .card h3{margin:0 0 10px;font-size:16px}
+
+    .row{display:flex;gap:10px}
+    input,select,button,textarea{width:100%;border:1px solid var(--muted);border-radius:10px;padding:10px 12px;font:inherit}
+    input:focus,select:focus,textarea:focus{outline:2px solid rgba(109,40,217,.25);border-color:var(--brand)}
+    button.primary{background:var(--brand);color:#fff;border-color:transparent;font-weight:700;cursor:pointer}
+    button.secondary{background:#fff;color:var(--ink);font-weight:700}
+    button.ghost{background:transparent;border:none;color:var(--sub);cursor:pointer}
+
+    .pillbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+    .pill{padding:8px 12px;border-radius:999px;border:1px solid var(--muted);cursor:pointer;background:#f8fafc}
+    .pill.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#065f46}
+
+    table{width:100%;border-collapse:separate;border-spacing:0 6px}
+    th{font-size:12px;color:var(--sub);text-align:left;padding:6px 8px}
+    td{background:#fff;border:1px solid var(--muted);border-left:none;border-right:none;padding:10px 8px}
+    tr{border-radius:8px}
+    .right{text-align:right}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+    .expense{background:rgba(14,165,233,.12);color:#075985}
+    .payment{background:rgba(34,197,94,.12);color:#065f46}
+
+    .balances{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .mini{background:#f8fafc;border:1px dashed var(--muted);border-radius:12px;padding:12px}
+    .mini h4{margin:0 0 10px}
+    .mini p{margin:6px 0;font-size:13px;color:var(--sub)}
+    .mini a{color:var(--brand-3);text-decoration:none}
+
+    .danger{color:#991b1b}
+    .foot{display:flex;justify-content:center;margin-top:18px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app">
+      <div class="title">Group Expense Tracker</div>
+      <div class="tabs">
+        <button class="tab active" data-tab="add">💸 Add Expense</button>
+        <button class="tab" data-tab="pay">🤝 Pay Back</button>
+        <button class="tab" data-tab="history">📜 History</button>
+      </div>
+
+      <div id="tab-add" class="tabview">
+        <div class="grid">
+          <div class="card">
+            <h3>Add New Expense</h3>
+            <div class="row"><input id="amount" type="number" step="0.01" placeholder="Amount Spent"/></div>
+            <div class="row">
+              <select id="paidBy"></select>
+            </div>
+            <div class="row"><input id="desc" placeholder="Description (optional)"/></div>
+            <div>
+              <div style="font-size:12px;color:var(--sub);font-weight:600;">Split Between</div>
+              <div id="splitBetween" class="pillbar"></div>
+            </div>
+            <div class="row"><button id="addBtn" class="primary">Add Expense</button></div>
+          </div>
+
+          <div class="card">
+            <h3>Balances</h3>
+            <div id="balances" class="balances"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-pay" class="tabview" style="display:none">
+        <div class="grid">
+          <div class="card">
+            <h3>Record Payment</h3>
+            <div class="row"><input id="payAmount" type="number" step="0.01" placeholder="Payment Amount"/></div>
+            <div class="row"><select id="from"></select></div>
+            <div class="row"><select id="to"></select></div>
+            <div class="row"><input id="payDesc" placeholder="Description (optional)"/></div>
+            <div class="row"><button id="payBtn" class="primary">Record Payment</button></div>
+          </div>
+          <div class="card">
+            <h3>Totals by Person</h3>
+            <div id="totals" class="balances"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-history" class="tabview" style="display:none">
+        <div class="card">
+          <h3>Transaction History</h3>
+          <table id="historyTable">
+            <thead>
+              <tr>
+                <th>Date</th><th>Type</th><th>Description</th><th class="right">Amount</th><th>From</th><th>To / Split</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="foot">
+        <button id="clearAll" class="ghost danger">Clear ALL data (owner only)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase v10 CDN -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js';
+
+    // 1) Replace with your Firebase web app config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_BUCKET",
+      messagingSenderId: "",
+      appId: ""
+    };
+
+    // 2) People list — edit or fetch from Firestore in future
+    const PEOPLE = ['Hanaan','Fahad','Tayyab','Islam'];
+
+    // Init
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Collections
+    const txCol = collection(db, 'transactions');
+
+    // UI helpers
+    const $ = s => document.querySelector(s);
+    const el = (t, cls, html) => { const e = document.createElement(t); if (cls) e.className = cls; if (html!==undefined) e.innerHTML = html; return e; };
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const key = btn.dataset.tab;
+      document.querySelectorAll('.tabview').forEach(v => v.style.display='none');
+      $('#tab-'+key).style.display='block';
+    }));
+
+    // Populate selects and pill buttons
+    function renderPeopleControls() {
+      const paidSel = $('#paidBy');
+      const fromSel = $('#from');
+      const toSel = $('#to');
+      paidSel.innerHTML = PEOPLE.map(p=>`<option value="${p}">Who Paid: ${p}</option>`).join('');
+      fromSel.innerHTML = PEOPLE.map(p=>`<option value="${p}">From: ${p}</option>`).join('');
+      toSel.innerHTML   = PEOPLE.map(p=>`<option value="${p}">To: ${p}</option>`).join('');
+
+      const wrap = $('#splitBetween');
+      wrap.innerHTML = '';
+      PEOPLE.forEach(name => {
+        const b = el('button','pill');
+        b.textContent = name;
+        b.addEventListener('click', ()=>{b.classList.toggle('active')});
+        wrap.appendChild(b);
+      });
+    }
+
+    renderPeopleControls();
+
+    // Add Expense
+    $('#addBtn').addEventListener('click', async () => {
+      const amount = parseFloat($('#amount').value);
+      const paidBy = $('#paidBy').value;
+      const desc = $('#desc').value.trim();
+      const splitBetween = Array.from(document.querySelectorAll('#splitBetween .pill.active')).map(b=>b.textContent);
+      if (!amount || !paidBy || splitBetween.length===0) { alert('Fill amount, who paid, and at least one split name.'); return; }
+      await addDoc(txCol, { type:'Expense', amount, paidBy, splitBetween, description:desc, date: new Date().toISOString(), createdAt: serverTimestamp() });
+      $('#amount').value=''; $('#desc').value=''; document.querySelectorAll('#splitBetween .pill.active').forEach(b=>b.classList.remove('active'));
+    });
+
+    // Record Payment
+    $('#payBtn').addEventListener('click', async () => {
+      const amount = parseFloat($('#payAmount').value);
+      const from = $('#from').value; const to = $('#to').value; const desc = $('#payDesc').value.trim();
+      if (!amount || !from || !to || from===to) { alert('Enter amount and valid From → To.'); return; }
+      await addDoc(txCol, { type:'Payment', amount, from, to, description:desc, date: new Date().toISOString(), createdAt: serverTimestamp() });
+      $('#payAmount').value=''; $('#payDesc').value='';
+    });
+
+    // Clear all (repo owner only — crude guard)
+    $('#clearAll').addEventListener('click', async () => {
+      if (!confirm('Really delete ALL transactions?')) return;
+      const snap = await getDocs(query(txCol));
+      const promises = [];
+      snap.forEach(d=> promises.push(deleteDoc(doc(db,'transactions',d.id))));
+      await Promise.all(promises);
+    });
+
+    // Live updates
+    onSnapshot(query(txCol, orderBy('createdAt','desc')), (snap)=>{
+      const rows = [];
+      const txs = [];
+      snap.forEach(doc=>{ const t = {id:doc.id, ...doc.data()}; txs.push(t); });
+
+      // History table
+      const tbody = $('#historyTable tbody');
+      tbody.innerHTML = '';
+      txs.forEach(t=>{
+        const tr = el('tr');
+        const when = new Date(t.date||Date.now()).toISOString().slice(0,10);
+        const badge = t.type==='Expense' ? '<span class="badge expense">Expense</span>' : '<span class="badge payment">Payment</span>';
+        const right = (n)=>`$${Number(n).toFixed(2)}`;
+        const toSplit = t.type==='Expense' ? (t.splitBetween||[]).join(', ') : (t.to||'');
+        tr.innerHTML = `<td>${when}</td><td>${badge}</td><td>${t.description||''}</td><td class="right">${right(t.amount)}</td><td>${t.paidBy||t.from||''}</td><td>${toSplit}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      // Balances matrix owes[i][j] meaning i owes j
+      const idx = Object.fromEntries(PEOPLE.map((p,i)=>[p,i]));
+      const n = PEOPLE.length; const owes = Array.from({length:n},()=>Array(n).fill(0));
+      txs.slice().reverse().forEach(t=>{
+        if (t.type==='Expense'){
+          const share = t.amount / (t.splitBetween||[]).length;
+          (t.splitBetween||[]).forEach(name=>{
+            if (name===t.paidBy) return; const i=idx[name], j=idx[t.paidBy];
+            if (i!=null && j!=null) owes[i][j]+=share;
+          });
+        } else if (t.type==='Payment') {
+          const i=idx[t.from], j=idx[t.to]; if (i!=null && j!=null) owes[i][j]-=t.amount;
+        }
+      });
+
+      // Render mini-balance cards
+      const box = $('#balances'); box.innerHTML='';
+      PEOPLE.forEach((p,i)=>{
+        const card = el('div','mini');
+        card.innerHTML = `<h4>${p}</h4>`;
+        PEOPLE.forEach((q,j)=>{
+          if (i===j) return; const val = owes[i][j]-owes[j][i];
+          if (Math.abs(val) < 0.01) return;
+          card.appendChild(el('p',null, val>0 ? `${p} owes ${q}: <b>$${val.toFixed(2)}</b>` : `${q} owes ${p}: <b>$${(-val).toFixed(2)}</b>` ));
+        });
+        box.appendChild(card);
+      });
+
+      // Totals by person: weekly + monthly (sum of expenses they paid)
+      const byPerson = Object.fromEntries(PEOPLE.map(p=>[p,{week:0,month:0,all:0}]));
+      const today = new Date();
+      const startOfWeek = (d=>{ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; })(today);
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      txs.forEach(t=>{
+        if (t.type!=='Expense') return;
+        const when = new Date(t.date||Date.now());
+        const amt = Number(t.amount)||0; const who = t.paidBy; if (!byPerson[who]) return;
+        byPerson[who].all += amt;
+        if (when >= startOfWeek) byPerson[who].week += amt;
+        if (when >= startOfMonth) byPerson[who].month += amt;
+      });
+
+      const totals = $('#totals'); totals.innerHTML='';
+      PEOPLE.forEach(p=>{
+        const d = byPerson[p];
+        const card = el('div','mini');
+        card.innerHTML = `<h4>${p}</h4>
+          <p>This week: <b>$${d.week.toFixed(2)}</b></p>
+          <p>This month: <b>$${d.month.toFixed(2)}</b></p>
+          <p>Total paid: <b>$${d.all.toFixed(2)}</b></p>`;
+        totals.appendChild(card);
+      });
+    });
+  </script>
+</body>
+</html>
