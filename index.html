@@ -112,7 +112,7 @@
           <table id="historyTable">
             <thead>
               <tr>
-                <th>Date</th><th>Type</th><th>Description</th><th class="right">Amount</th><th>From</th><th>To / Split</th>
+                <th>Date</th><th>Type</th><th>Description</th><th class="right">Amount</th><th>From</th><th>To / Split</th><th class="right">Action</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -135,20 +135,27 @@ import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/1
 
     // 1) Replace with your Firebase web app config
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_BUCKET",
-      messagingSenderId: "",
-      appId: ""
-    };
+  apiKey: "AIzaSyDwP_AusU7Rar2aguy0DVGGlravF9q2D1g",
+  authDomain: "house-expenditure-calculator.firebaseapp.com",
+  projectId: "house-expenditure-calculator",
+  storageBucket: "house-expenditure-calculator.firebasestorage.app",
+  messagingSenderId: "209030650549",
+  appId: "1:209030650549:web:de2eae21574b9023f1bcfc",
+  measurementId: "G-0HV7FPY7ME"
+};
 
     // 2) People list — edit or fetch from Firestore in future
-    const PEOPLE = ['Hanaan','Fahad','Tayyab','Islam'];
+    const PEOPLE = ['Tayyab','Islam','Mahmur','Guest'];
 
     // Init
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+
+// sign in anonymously so writes are allowed
+signInAnonymously(auth).catch(e => console.error('Anon sign-in error', e));
+
 
     // Collections
     const txCol = collection(db, 'transactions');
@@ -225,14 +232,23 @@ import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/1
       // History table
       const tbody = $('#historyTable tbody');
       tbody.innerHTML = '';
+      // delegated delete handler (works for all rows)
+tbody.onclick = async (ev) => {
+  const btn = ev.target.closest('[data-del]');
+  if (!btn) return;
+  const id = btn.getAttribute('data-del');
+  if (!confirm('Delete this transaction?')) return;
+  await deleteDoc(doc(db, 'transactions', id));
+};
+
       txs.forEach(t=>{
         const tr = el('tr');
         const when = new Date(t.date||Date.now()).toISOString().slice(0,10);
         const badge = t.type==='Expense' ? '<span class="badge expense">Expense</span>' : '<span class="badge payment">Payment</span>';
         const right = (n)=>`$${Number(n).toFixed(2)}`;
         const toSplit = t.type==='Expense' ? (t.splitBetween||[]).join(', ') : (t.to||'');
-        tr.innerHTML = `<td>${when}</td><td>${badge}</td><td>${t.description||''}</td><td class="right">${right(t.amount)}</td><td>${t.paidBy||t.from||''}</td><td>${toSplit}</td>`;
-        tbody.appendChild(tr);
+        tr.innerHTML = `<td>${when}</td><td>${badge}</td><td>${t.description||''}</td><td class="right">${right(t.amount)}</td><td>${t.paidBy||t.from||''}</td><td>${toSplit}</td><td class="right"><button class="pill danger" data-del="${t.id}">Delete</button></td>`;
+tbody.appendChild(tr);
       });
 
       // Balances matrix owes[i][j] meaning i owes j
