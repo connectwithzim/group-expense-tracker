@@ -23,10 +23,47 @@
     .tab{padding:10px 14px;border-radius:999px;border:1px solid var(--muted);background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
     .tab.active{background:var(--brand);color:#fff;border-color:transparent}
 
-    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
-    @media (max-width: 768px) {
-  .grid { grid-template-columns: 1fr; }
+    .grid {  display: grid;  grid-template-columns: 1fr;  gap: 16px;}
+    /* One card per row, centered */
+#balances,
+#totals {
+  display: grid;
+  grid-template-columns: 1fr;     /* single column */
+  gap: 12px;
+  justify-items: center;          /* center each card */
 }
+
+/* Card style: rectangular + 3D-ish */
+.mini {
+  position: relative;
+  width: min(560px, 92%);         /* not full width */
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow:
+    0 14px 28px rgba(2, 6, 23, 0.08),  /* soft drop */
+    0 1px 0 rgba(255,255,255,0.6) inset; /* subtle inner edge */
+}
+
+/* Left accent strip for depth */
+.mini::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  border-radius: 18px 0 0 18px;
+  background: linear-gradient(180deg, #6d28d9, #0ea5e9);
+  opacity: .45;
+}
+
+/* Row lines + colored amounts (if you haven't added these yet) */
+.line { display:flex; justify-content:space-between; align-items:center;
+        padding: 8px 0; border-top: 1px solid #e2e8f0; }
+.mini .line:first-of-type { border-top: none; }
+.amt-pos { color: #22c55e; font-weight: 700; }  /* green */
+.amt-neg { color: #ef4444; font-weight: 700; }  /* red */
+
 
     .card{background:#fff;border:1px solid var(--muted);border-radius:12px;padding:16px}
     .card h3{margin:0 0 10px;font-size:16px}
