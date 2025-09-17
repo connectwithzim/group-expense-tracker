@@ -350,17 +350,32 @@ tbody.appendChild(tr);
       // Balances matrix owes[i][j] meaning i owes j
       const idx = Object.fromEntries(PEOPLE.map((p,i)=>[p,i]));
       const n = PEOPLE.length; const owes = Array.from({length:n},()=>Array(n).fill(0));
-      txs.slice().reverse().forEach(t=>{
-        if (t.type==='Expense'){
-          const share = t.amount / (t.splitBetween||[]).length;
-          (t.splitBetween||[]).forEach(name=>{
-            if (name===t.paidBy) return; const i=idx[name], j=idx[t.paidBy];
-            if (i!=null && j!=null) owes[i][j]+=share;
-          });
-        } else if (t.type==='Payment') {
-          const i=idx[t.from], j=idx[t.to]; if (i!=null && j!=null) owes[i][j]-=t.amount;
-        }
-      });
+      txs.slice().reverse().forEach(t => {
+  if (t.type === 'Expense') {
+    const inc = Array.isArray(t.splitBetween)
+      ? t.splitBetween.filter(n => PEOPLE.includes(n))
+      : [];
+
+    // no participants → skip (prevents divide-by-zero/NaN)
+    if (inc.length === 0) return;
+
+    // payer must be known to place debts correctly
+    const j = idx[t.paidBy];
+    if (j == null) return;
+
+    const share = Number(t.amount) / inc.length;
+    inc.forEach(name => {
+      const i = idx[name];
+      if (i == null || i === j) return; // don't owe self
+      owes[i][j] += share;
+    });
+
+  } else if (t.type === 'Payment') {
+    const i = idx[t.from], j = idx[t.to];
+    if (i != null && j != null) owes[i][j] -= (Number(t.amount) || 0);
+  }
+});
+
 
       // Render mini-balance cards (friendly phrasing + colors)
 const box = document.querySelector('#balances');
@@ -412,26 +427,18 @@ function weekOfMonth(d) {
 }
 
 // Convert various possible "included people" fields to an array
-function arrify(x){
-  if (!x) return [];
-  if (Array.isArray(x)) return x;
-  if (typeof x === 'string') return x.split(',').map(s=>s.trim()).filter(Boolean);
-  return [];
-}
-function getIncluded(t){
-  const arrify = (x) => {
+// Helpers
+const arrify = (x) => {
   if (!x) return [];
   if (Array.isArray(x)) return x.slice();
   if (typeof x === 'string') return x.split(',').map(s => s.trim()).filter(Boolean);
   return [];
 };
 
-// Participants are exactly who was selected in splitBetween.
+// Participants are exactly those selected in splitBetween.
 // Payer is NOT auto-included.
 function getIncluded(t) {
   return arrify(t.splitBetween).filter(n => PEOPLE.includes(n));
-}
-
 }
 
 // Add a pro-rata share to all included people
@@ -447,6 +454,7 @@ txs.forEach(t => {
   const when = new Date(t.date || Date.now());
   const amt  = Number(t.amount) || 0;
   const inc  = getIncluded(t);
+  if (inc.length === 0 || !isFinite(amt) || amt <= 0) return;
 
   // This month (also bucket by week)
   if (when >= startThisMonth && when < startNextMonth) {
@@ -467,6 +475,7 @@ txs.forEach(t => {
     addShare(inc, amt, (name, share) => { byPerson[name].prev2Month += share; });
   }
 });
+
 
 // Render (labels + your spacing stays the same via #totals .rowline CSS)
 const totals = $('#totals');
