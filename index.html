@@ -270,15 +270,36 @@ signInAnonymously(auth).catch(e => console.error('Anon sign-in error', e));
     renderPeopleControls();
 
     // Add Expense
-    $('#addBtn').addEventListener('click', async () => {
-      const amount = parseFloat($('#amount').value);
-      const paidBy = $('#paidBy').value;
-      const desc = $('#desc').value.trim();
-      const splitBetween = Array.from(document.querySelectorAll('#splitBetween .pill.active')).map(b=>b.textContent);
-      if (!amount || !paidBy || splitBetween.length===0) { alert('Fill amount, who paid, and at least one split name.'); return; }
-      await addDoc(txCol, { type:'Expense', amount, paidBy, splitBetween, description:desc, date: new Date().toISOString(), createdAt: serverTimestamp() });
-      $('#amount').value=''; $('#desc').value=''; document.querySelectorAll('#splitBetween .pill.active').forEach(b=>b.classList.remove('active'));
-    });
+$('#addBtn').addEventListener('click', async () => {
+  const amount = parseFloat($('#amount').value);
+  const paidBy = $('#paidBy').value;
+  const desc = $('#desc').value.trim();
+  const splitBetween = Array.from(
+    document.querySelectorAll('#splitBetween .pill.active')
+  ).map(b => b.textContent);
+
+  if (!amount || !paidBy || splitBetween.length === 0) {
+    alert('Fill amount, who paid, and at least one split name.');
+    return;
+  }
+
+  // NOTE: no automatic inclusion of payer here
+  await addDoc(txCol, {
+    type: 'Expense',
+    amount,
+    paidBy,
+    splitBetween,      // only the selected people
+    description: desc,
+    date: new Date().toISOString(),
+    createdAt: serverTimestamp()
+  });
+
+  $('#amount').value = '';
+  $('#desc').value = '';
+  document.querySelectorAll('#splitBetween .pill.active')
+    .forEach(b => b.classList.remove('active'));
+});
+
 
     // Record Payment
     $('#payBtn').addEventListener('click', async () => {
@@ -398,12 +419,19 @@ function arrify(x){
   return [];
 }
 function getIncluded(t){
-  // Try common field names; fall back to EVERYONE if none present
-  const candidate = t.included || t.splitWith || t.split || t.for || t.to || t.people || t.participants;
-  let inc = arrify(candidate);
-  if (inc.length === 0) inc = PEOPLE.slice();
-  // Keep only known names
-  return inc.filter(name => PEOPLE.includes(name));
+  const arrify = (x) => {
+  if (!x) return [];
+  if (Array.isArray(x)) return x.slice();
+  if (typeof x === 'string') return x.split(',').map(s => s.trim()).filter(Boolean);
+  return [];
+};
+
+// Participants are exactly who was selected in splitBetween.
+// Payer is NOT auto-included.
+function getIncluded(t) {
+  return arrify(t.splitBetween).filter(n => PEOPLE.includes(n));
+}
+
 }
 
 // Add a pro-rata share to all included people
