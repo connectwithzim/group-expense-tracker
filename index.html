@@ -14,188 +14,144 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   
   <style>
-    :root{
-      --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --sub:#64748b; --muted:#e2e8f0; --brand:#6d28d9; --brand-2:#22c55e; --brand-3:#0ea5e9; --danger:#ef4444;
+  :root{
+    --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --sub:#64748b; --muted:#e2e8f0; --brand:#6d28d9; --brand-2:#22c55e; --brand-3:#0ea5e9; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .container{max-width:1100px;margin:28px auto;padding:0 16px}
+  .app{background:var(--card);border-radius:18px;box-shadow:0 10px 30px rgba(2,6,23,.06);padding:22px 22px 28px}
+  .title{font-weight:800;letter-spacing:.2px;text-align:center;margin:4px 0 16px;font-size:26px;color:#5b21b6}
+
+  /* Totals-by-Person spacing only */
+  #totals .rowline {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+  }
+  #totals .rowline b {
+    min-width:8ch;
+    text-align:right;
+  }
+
+  .tabs{display:flex;gap:8px;justify-content:center;margin:8px 0 18px}
+  .tab{padding:10px 14px;border-radius:999px;border:1px solid var(--muted);background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
+  .tab.active{background:var(--brand);color:#fff;border-color:transparent}
+
+  .grid{display:grid;grid-template-columns:1fr;gap:16px}
+
+  /* One card per row, centered */
+  #balances,
+  #totals{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    justify-items:center;
+  }
+
+  /* Card style: rectangular + subtle depth */
+  .mini{
+    position:relative;
+    width:min(560px,92%);
+    background:#fff;
+    border:1px solid #e2e8f0;
+    border-radius:18px;
+    padding:14px 16px;
+    box-shadow:0 14px 28px rgba(2,6,23,0.08), 0 1px 0 rgba(255,255,255,0.6) inset;
+  }
+  .mini::before{
+    content:"";
+    position:absolute;left:0;top:0;bottom:0;width:6px;
+    border-radius:18px 0 0 18px;
+    background:linear-gradient(180deg,#6d28d9,#0ea5e9);
+    opacity:.45;
+  }
+
+  /* Row lines + colored amounts */
+  .line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #e2e8f0;}
+  .mini .line:first-of-type{border-top:none;}
+  .amt-pos{color:#22c55e;font-weight:700;}  /* green */
+  .amt-neg{color:#ef4444;font-weight:700;}  /* red */
+
+  /* Weeks (1–4) and Months coloring in Totals */
+  #totals .mini .rowline:nth-of-type(1) span{color:#ef4444;} /* 1st week */
+  #totals .mini .rowline:nth-of-type(2) span{color:#f59e0b;} /* 2nd week */
+  #totals .mini .rowline:nth-of-type(3) span{color:#10b981;} /* 3rd week */
+  #totals .mini .rowline:nth-of-type(4) span{color:#3b82f6;} /* 4th week */
+  #totals .mini .rowline:nth-of-type(5) span{color:#6d28d9;} /* This month */
+  #totals .mini .rowline:nth-of-type(6) span{color:#0ea5e9;} /* Last Month */
+  #totals .mini .rowline:nth-of-type(7) span{color:#64748b;} /* 2nd Last Month */
+
+  .card{background:#fff;border:1px solid var(--muted);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 10px;font-size:16px}
+
+  .row{display:flex;gap:10px}
+  input,select,button,textarea{width:100%;border:1px solid var(--muted);border-radius:10px;padding:10px 12px;font:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid rgba(109,40,217,.25);border-color:var(--brand)}
+  button.primary{background:var(--brand);color:#fff;border-color:transparent;font-weight:700;cursor:pointer}
+  button.secondary{background:#fff;color:var(--ink);font-weight:700}
+  button.ghost{background:transparent;border:none;color:var(--sub);cursor:pointer}
+
+  .pillbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .pill{padding:8px 12px;border-radius:999px;border:1px solid var(--muted);cursor:pointer;background:#f8fafc}
+  .pill.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#065f46}
+
+  table{width:100%;border-collapse:separate;border-spacing:0 6px}
+  th{font-size:12px;color:var(--sub);text-align:left;padding:6px 8px}
+  td{background:#fff;border:1px solid var(--muted);border-left:none;border-right:none;padding:10px 8px}
+  tr{border-radius:8px}
+  .right{text-align:right}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+  .expense{background:rgba(14,165,233,.12);color:#075985}
+  .payment{background:rgba(34,197,94,.12);color:#065f46}
+
+  /* Mini card typography helpers */
+  .mini h4{margin:0 0 10px}
+  .mini p{margin:6px 0;font-size:13px;color:var(--sub)}
+  .mini a{color:var(--brand-3);text-decoration:none}
+
+  .danger{color:#991b1b}
+  .foot{display:flex;justify-content:center;margin-top:18px}
+
+  /* Spacing in Add tab */
+  #tab-add .grid .card:first-child .row{margin-bottom:12px;}
+  #tab-add .grid .card:first-child .row:last-child{margin-bottom:0;}
+
+  /* Spacing in Record Payment tab */
+  #tab-pay .grid .card:first-child .row{margin-bottom:12px;}
+  #tab-pay .grid .card:first-child .row:last-child{margin-bottom:0;}
+
+  /* ===== History: horizontal scroll when needed (phones/tablets) ===== */
+  #tab-history .card{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  #historyTable{min-width:760px;table-layout:auto;width:auto;}
+  #historyTable th,#historyTable td{white-space:nowrap;}
+
+  /* History tab: badge colors override */
+  #tab-history .badge.expense{
+    background:rgba(239,68,68,.12);
+    color:#b91c1c;
+    border:1px solid rgba(239,68,68,.35);
+  }
+  #tab-history .badge.payment{
+    background:rgba(34,197,94,.12);
+    color:#065f46;
+    border:1px solid rgba(34,197,94,.35);
+  }
+
+  /* Desktop/wide screens: table fills card, wraps text */
+  @media (min-width:900px){
+    #tab-history .card{overflow-x:visible;}
+    #historyTable{min-width:0;width:100%;table-layout:auto;}
+    #historyTable th,#historyTable td{
+      white-space:normal;
+      word-break:break-word;
+      overflow-wrap:anywhere;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%;}
-    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-    .container{max-width:1100px;margin:28px auto;padding:0 16px}
-    .app{background:var(--card);border-radius:18px;box-shadow:0 10px 30px rgba(2,6,23,.06);padding:22px 22px 28px}
-    .title{font-weight:800;letter-spacing:.2px;text-align:center;margin:4px 0 16px;font-size:26px;color:#5b21b6}
-/* Totals-by-Person spacing only */
-#totals .rowline {
-  display: flex;
-  justify-content: space-between;  /* label left, amount right */
-  align-items: center;
-  gap: 12px;                        /* space between text and currency */
-}
-#totals .rowline b {
-  min-width: 8ch;                   /* keeps numbers from hugging labels */
-  text-align: right;
-}
-#totals .rowline { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-#totals .rowline b { text-align:right; min-width:8ch; }
-
-    .tabs{display:flex;gap:8px;justify-content:center;margin:8px 0 18px}
-    .tab{padding:10px 14px;border-radius:999px;border:1px solid var(--muted);background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
-    .tab.active{background:var(--brand);color:#fff;border-color:transparent}
-
-    .grid {  display: grid;  grid-template-columns: 1fr;  gap: 16px;}
-    /* One card per row, centered */
-#balances,
-#totals {
-  display: grid;
-  grid-template-columns: 1fr;     /* single column */
-  gap: 12px;
-  justify-items: center;          /* center each card */
-}
-
-/* Card style: rectangular + 3D-ish */
-.mini {
-  position: relative;
-  width: min(560px, 92%);         /* not full width */
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 14px 16px;
-  box-shadow:
-    0 14px 28px rgba(2, 6, 23, 0.08),  /* soft drop */
-    0 1px 0 rgba(255,255,255,0.6) inset; /* subtle inner edge */
-}
-
-/* Left accent strip for depth */
-.mini::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 6px;
-  border-radius: 18px 0 0 18px;
-  background: linear-gradient(180deg, #6d28d9, #0ea5e9);
-  opacity: .45;
-}
-
-/* Row lines + colored amounts (if you haven't added these yet) */
-.line { display:flex; justify-content:space-between; align-items:center;
-        padding: 8px 0; border-top: 1px solid #e2e8f0; }
-.mini .line:first-of-type { border-top: none; }
-.amt-pos { color: #22c55e; font-weight: 700; }  /* green */
-.amt-neg { color: #ef4444; font-weight: 700; }  /* red */
-
-/* Weeks (1–4) */
-#totals .mini .rowline:nth-of-type(1) span { color: #ef4444; } /* 1st week */
-#totals .mini .rowline:nth-of-type(2) span { color: #f59e0b; } /* 2nd week */
-#totals .mini .rowline:nth-of-type(3) span { color: #10b981; } /* 3rd week */
-#totals .mini .rowline:nth-of-type(4) span { color: #3b82f6; } /* 4th week */
-
-/* Months */
-#totals .mini .rowline:nth-of-type(5) span { color: #6d28d9; } /* This month */
-#totals .mini .rowline:nth-of-type(6) span { color: #0ea5e9; } /* Last Month */
-#totals .mini .rowline:nth-of-type(7) span { color: #64748b; } /* 2nd Last Month */
-
-    .card{background:#fff;border:1px solid var(--muted);border-radius:12px;padding:16px}
-    .card h3{margin:0 0 10px;font-size:16px}
-
-    .row{display:flex;gap:10px}
-    input,select,button,textarea{width:100%;border:1px solid var(--muted);border-radius:10px;padding:10px 12px;font:inherit}
-    input:focus,select:focus,textarea:focus{outline:2px solid rgba(109,40,217,.25);border-color:var(--brand)}
-    button.primary{background:var(--brand);color:#fff;border-color:transparent;font-weight:700;cursor:pointer}
-    button.secondary{background:#fff;color:var(--ink);font-weight:700}
-    button.ghost{background:transparent;border:none;color:var(--sub);cursor:pointer}
-
-    .pillbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-    .pill{padding:8px 12px;border-radius:999px;border:1px solid var(--muted);cursor:pointer;background:#f8fafc}
-    .pill.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#065f46}
-
-    table{width:100%;border-collapse:separate;border-spacing:0 6px}
-    th{font-size:12px;color:var(--sub);text-align:left;padding:6px 8px}
-    td{background:#fff;border:1px solid var(--muted);border-left:none;border-right:none;padding:10px 8px}
-    tr{border-radius:8px}
-    .right{text-align:right}
-    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
-    .expense{background:rgba(14,165,233,.12);color:#075985}
-    .payment{background:rgba(34,197,94,.12);color:#065f46}
-
-    .balances{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-    .mini{background:#f8fafc;border:1px dashed var(--muted);border-radius:12px;padding:12px}
-    .mini h4{margin:0 0 10px}
-    .mini p{margin:6px 0;font-size:13px;color:var(--sub)}
-    .mini a{color:var(--brand-3);text-decoration:none}
-.line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--muted);}
-.mini .line:first-of-type{border-top:none;}
-.amt-pos{color:var(--brand-2);font-weight:700;}   /* green */
-.amt-neg{color:var(--danger);font-weight:700;}    /* red   */
-
-    .danger{color:#991b1b}
-    .foot{display:flex;justify-content:center;margin-top:18px}
-
-    /* Space out all rows in the first card of the Add tab */
-#tab-add .grid .card:first-child .row {
-  margin-bottom: 12px;
-}
-#tab-add .grid .card:first-child .row:last-child {
-  margin-bottom: 0; /* keep the button snug at the bottom */
-}
-
-    /* Space out the fields in "Record Payment" */
-#tab-pay .grid .card:first-child .row {
-  margin-bottom: 12px;   /* bump to 14–16px if you want more space */
-}
-#tab-pay .grid .card:first-child .row:last-child {
-  margin-bottom: 0;      /* keep the button snug at the bottom */
-}
-
-    /* ===== History: horizontal scroll if content overflows ===== */
-#tab-history .card {
-  overflow-x: auto;              /* show a scrollbar when needed */
-  -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
-}
-
-/* Make the table wider than small screens so it can scroll */
-#historyTable {
-  min-width: 760px;              /* tweak to 700–900px if you like */
-  table-layout: auto;            /* let columns size naturally */
-  width: auto;                   /* don't force it to 100% */
-}
-
-/* Keep cells on one line so nothing wraps out of the cell */
-#historyTable th,
-#historyTable td {
-  white-space: nowrap;           /* no truncation, just scroll */
-}
-
-    /* History tab: badge colors */
-#tab-history .badge.expense {
-  background: rgba(239, 68, 68, 0.12);   /* red bg */
-  color: #b91c1c;                        /* red text */
-  border: 1px solid rgba(239, 68, 68, 0.35);
-}
-
-#tab-history .badge.payment {
-  background: rgba(34, 197, 94, 0.12);   /* green bg */
-  color: #065f46;                        /* green text */
-  border: 1px solid rgba(34, 197, 94, 0.35);
-}
-/* Desktop/wide screens: let the table fill the card */
-@media (min-width: 900px) {
-  #tab-history .card {
-    overflow-x: visible;        /* no scrollbar needed on wide screens */
   }
-  #historyTable {
-    min-width: 0;               /* cancel the mobile min-width */
-    width: 100%;                /* stretch to card width */
-    table-layout: auto;
-  }
-  #historyTable th,
-  #historyTable td {
-    white-space: normal;        /* allow wrapping so columns don't force width */
-    word-break: break-word;
-    overflow-wrap: anywhere;
-  }
-}
+</style>
 
-
-  </style>
 </head>
 <body>
   <div class="container">
