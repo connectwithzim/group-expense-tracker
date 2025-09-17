@@ -372,50 +372,77 @@ PEOPLE.forEach((p, i) => {
 });
 
 
-      // Totals by person: weekly breakdown (1–4) + this/last/2nd last month (sum of expenses they paid)
+     // Totals by person: use each person's split share (NOT the payer total)
 const byPerson = Object.fromEntries(
   PEOPLE.map(p => [p, { w1:0, w2:0, w3:0, w4:0, month:0, lastMonth:0, prev2Month:0 }])
 );
 
 const today = new Date();
 const y = today.getFullYear(), m = today.getMonth();
-const startThisMonth = new Date(y, m, 1);
-const startNextMonth = new Date(y, m + 1, 1);
-const startLastMonth = new Date(y, m - 1, 1);
+const startThisMonth  = new Date(y, m, 1);
+const startNextMonth  = new Date(y, m + 1, 1);
+const startLastMonth  = new Date(y, m - 1, 1);
 const startPrev2Month = new Date(y, m - 2, 1);
 
-// 1..4 based on day-of-month buckets (1–7, 8–14, 15–21, 22–end)
+// Week bucket within the month (1..4)
 function weekOfMonth(d) {
   const day = d.getDate();
-  if (day <= 7) return 1;
-  if (day <= 14) return 2;
-  if (day <= 21) return 3;
-  return 4;
+  return day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
 }
 
-// Sum expenses by payer
+// Convert various possible "included people" fields to an array
+function arrify(x){
+  if (!x) return [];
+  if (Array.isArray(x)) return x;
+  if (typeof x === 'string') return x.split(',').map(s=>s.trim()).filter(Boolean);
+  return [];
+}
+function getIncluded(t){
+  // Try common field names; fall back to EVERYONE if none present
+  const candidate = t.included || t.splitWith || t.split || t.for || t.to || t.people || t.participants;
+  let inc = arrify(candidate);
+  if (inc.length === 0) inc = PEOPLE.slice();
+  // Keep only known names
+  return inc.filter(name => PEOPLE.includes(name));
+}
+
+// Add a pro-rata share to all included people
+function addShare(inc, amount, fn){
+  if (!inc.length) return;
+  const share = amount / inc.length;
+  inc.forEach(name => fn(name, share));
+}
+
+// Walk transactions: only count Expense, split to included people
 txs.forEach(t => {
   if (t.type !== 'Expense') return;
   const when = new Date(t.date || Date.now());
-  const amt = Number(t.amount) || 0;
-  const who = t.paidBy;
-  if (!byPerson[who]) return;
+  const amt  = Number(t.amount) || 0;
+  const inc  = getIncluded(t);
 
+  // This month (also bucket by week)
   if (when >= startThisMonth && when < startNextMonth) {
     const w = weekOfMonth(when);
-    byPerson[who][`w${w}`] += amt;
-    byPerson[who].month += amt;
+    addShare(inc, amt, (name, share) => {
+      byPerson[name][`w${w}`] += share;
+      byPerson[name].month    += share;
+    });
   }
+
+  // Last month
   if (when >= startLastMonth && when < startThisMonth) {
-    byPerson[who].lastMonth += amt;
+    addShare(inc, amt, (name, share) => { byPerson[name].lastMonth += share; });
   }
+
+  // 2nd last month
   if (when >= startPrev2Month && when < startLastMonth) {
-    byPerson[who].prev2Month += amt;
+    addShare(inc, amt, (name, share) => { byPerson[name].prev2Month += share; });
   }
 });
 
-// Render
-const totals = $('#totals'); totals.innerHTML = '';
+// Render (labels + your spacing stays the same via #totals .rowline CSS)
+const totals = $('#totals');
+totals.innerHTML = '';
 PEOPLE.forEach(p => {
   const d = byPerson[p];
   const card = el('div','mini');
@@ -431,6 +458,7 @@ PEOPLE.forEach(p => {
   `;
   totals.appendChild(card);
 });
+
 
     });
   </script>
