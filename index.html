@@ -128,6 +128,15 @@
 
     .danger{color:#991b1b}
     .foot{display:flex;justify-content:center;margin-top:18px}
+
+    /* Space out all rows in the first card of the Add tab */
+#tab-add .grid .card:first-child .row {
+  margin-bottom: 12px;
+}
+#tab-add .grid .card:first-child .row:last-child {
+  margin-bottom: 0; /* keep the button snug at the bottom */
+}
+
   </style>
 </head>
 <body>
