@@ -137,6 +137,34 @@
   margin-bottom: 0; /* keep the button snug at the bottom */
 }
 
+    /* Space out the fields in "Record Payment" */
+#tab-pay .grid .card:first-child .row {
+  margin-bottom: 12px;   /* bump to 14–16px if you want more space */
+}
+#tab-pay .grid .card:first-child .row:last-child {
+  margin-bottom: 0;      /* keep the button snug at the bottom */
+}
+
+    /* ===== History: horizontal scroll if content overflows ===== */
+#tab-history .card {
+  overflow-x: auto;              /* show a scrollbar when needed */
+  -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
+}
+
+/* Make the table wider than small screens so it can scroll */
+#historyTable {
+  min-width: 760px;              /* tweak to 700–900px if you like */
+  table-layout: auto;            /* let columns size naturally */
+  width: auto;                   /* don't force it to 100% */
+}
+
+/* Keep cells on one line so nothing wraps out of the cell */
+#historyTable th,
+#historyTable td {
+  white-space: nowrap;           /* no truncation, just scroll */
+}
+
+
   </style>
 </head>
 <body>
