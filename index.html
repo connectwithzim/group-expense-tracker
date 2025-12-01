@@ -37,6 +37,9 @@
   button.primary{background:var(--brand);color:#fff;border-color:transparent;font-weight:700;cursor:pointer}
   button.ghost{background:transparent;border:none;color:var(--sub);cursor:pointer}
   
+  /* Helper Labels */
+  .label-text { font-size:12px; color:var(--sub); margin-bottom:4px; font-weight:600; }
+
   /* Split Between Pills - BIGGER NOW */
   .pillbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
   .pill{
@@ -118,9 +121,10 @@
             <div class="card">
               <h3>Add Expense</h3>
               <div class="row"><input id="amount" type="number" step="0.01" placeholder="Amount"/></div>
+              <div class="label-text">Paid By:</div>
               <div class="row"><select id="paidBy"></select></div>
               <div class="row"><input id="desc" placeholder="Description"/></div>
-              <div style="font-size:12px;color:var(--sub);margin-bottom:4px;font-weight:600;">Split Between (Tap to select):</div>
+              <div class="label-text">Split Between (Tap to select):</div>
               <div id="splitBetween" class="pillbar"></div>
               <div class="row"><button id="addBtn" class="primary">Add Expense</button></div>
             </div>
@@ -133,8 +137,13 @@
             <div class="card">
               <h3>Record Payment</h3>
               <div class="row"><input id="payAmount" type="number" step="0.01" placeholder="Amount"/></div>
+              
+              <div class="label-text">Who is Paying (From):</div>
               <div class="row"><select id="from"></select></div>
+              
+              <div class="label-text">To Whom (To):</div>
               <div class="row"><select id="to"></select></div>
+              
               <div class="row"><button id="payBtn" class="primary">Record Payment</button></div>
             </div>
             <div class="card"><h3>Totals by Person</h3><div id="totals"></div></div>
@@ -184,26 +193,22 @@
   const loginBtn = $('#loginBtn');
   const errorMsg = $('#loginError');
 
-  // Use addEventListener for safety
   if(loginBtn) {
     loginBtn.addEventListener('click', () => {
       const name = $('#loginName').value;
       const pin = $('#loginPin').value;
       const email = `${name}@group.app`; 
       
-      // UI Feedback: Show user something is happening
       loginBtn.textContent = "Unlocking...";
       loginBtn.disabled = true;
       errorMsg.style.display = 'none';
 
       signInWithEmailAndPassword(auth, email, pin)
         .catch(e => {
-          // ERROR HANDLER: Reset button and show error
           loginBtn.textContent = "Unlock App";
           loginBtn.disabled = false;
           errorMsg.style.display = 'block';
           
-          // Friendly Error Messages
           if(e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
             errorMsg.textContent = "Wrong PIN! Please try again.";
             alert("Wrong PIN! Please try again.");
@@ -228,7 +233,7 @@
       const name = user.email.split('@')[0];
       $('#user-greeting').textContent = `Hi, ${name.charAt(0).toUpperCase() + name.slice(1)}`;
       $('#loginPin').value = ''; 
-      if(loginBtn) { loginBtn.textContent = "Unlock App"; loginBtn.disabled = false; } // Reset button
+      if(loginBtn) { loginBtn.textContent = "Unlock App"; loginBtn.disabled = false; }
       startApp(); 
     } else {
       $('#login-screen').style.display = 'block';
@@ -244,9 +249,10 @@
   let unsubscribe;
 
   function startApp() {
-    $('#paidBy').innerHTML = PEOPLE.map(p=>`<option value="${p}">${p}</option>`).join('');
-    $('#from').innerHTML = PEOPLE.map(p=>`<option value="${p}">${p}</option>`).join('');
-    $('#to').innerHTML = PEOPLE.map(p=>`<option value="${p}">${p}</option>`).join('');
+    // Restored descriptive text in dropdowns
+    $('#paidBy').innerHTML = PEOPLE.map(p=>`<option value="${p}">Who Paid: ${p}</option>`).join('');
+    $('#from').innerHTML = PEOPLE.map(p=>`<option value="${p}">From: ${p}</option>`).join('');
+    $('#to').innerHTML = PEOPLE.map(p=>`<option value="${p}">To: ${p}</option>`).join('');
     
     $('#splitBetween').innerHTML = '';
     PEOPLE.forEach(p => {
@@ -263,7 +269,6 @@
       calculateBalances(txs);
       calculateTotals(txs); 
     }, (err) => {
-      // If data fetch fails (e.g. permission rules)
       console.error(err);
       alert("Login successful, but cannot read data. Check your Firestore Security Rules.");
     });
