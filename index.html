@@ -179,6 +179,7 @@
 
   const PEOPLE = ['Tayyab','Islam','Mahmur','Guest'];
   const CURRENCY = '₺';
+  const AUTO_LOCK_MS = 5 * 60 * 1000; // 5 Minutes in milliseconds
 
   // INIT
   const app = initializeApp(firebaseConfig);
@@ -188,6 +189,23 @@
   
   const $ = s => document.querySelector(s);
   const el = (t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h)e.innerHTML=h;return e};
+
+  // --- AUTO LOCK LOGIC ---
+  let idleTimer;
+  function resetIdleTimer() {
+    if(idleTimer) clearTimeout(idleTimer);
+    // Only set the timer if user is actually logged in
+    if(auth.currentUser) {
+      idleTimer = setTimeout(() => {
+        signOut(auth).then(() => alert("App locked due to inactivity (5 mins)"));
+      }, AUTO_LOCK_MS);
+    }
+  }
+
+  // Listen for any activity
+  ['click', 'mousemove', 'keypress', 'touchstart', 'scroll'].forEach(evt => 
+    document.addEventListener(evt, resetIdleTimer, true)
+  );
 
   // --- AUTHENTICATION LOGIC ---
   const loginBtn = $('#loginBtn');
@@ -228,18 +246,25 @@
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
+      // User Just Logged In
       $('#login-screen').style.display = 'none';
       $('#main-app').style.display = 'block';
       const name = user.email.split('@')[0];
       $('#user-greeting').textContent = `Hi, ${name.charAt(0).toUpperCase() + name.slice(1)}`;
       $('#loginPin').value = ''; 
       if(loginBtn) { loginBtn.textContent = "Unlock App"; loginBtn.disabled = false; }
+      
+      // Start Auto-Lock Timer
+      resetIdleTimer();
+      
       startApp(); 
     } else {
+      // User Logged Out
       $('#login-screen').style.display = 'block';
       $('#main-app').style.display = 'none';
       $('#historyTable tbody').innerHTML = ''; 
       $('#balances').innerHTML = '';
+      if(idleTimer) clearTimeout(idleTimer); // Stop timer
       if(unsubscribe) unsubscribe();
     }
   });
