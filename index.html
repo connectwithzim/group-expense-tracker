@@ -40,14 +40,14 @@
   /* Split Between Pills - BIGGER NOW */
   .pillbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
   .pill{
-      padding:12px 16px; /* Increased padding */
-      border-radius:10px; /* Matching inputs */
+      padding:12px 16px; 
+      border-radius:10px;
       border:1px solid var(--muted);
       cursor:pointer;
       background:#f8fafc;
       width:auto;
       font-weight: 500;
-      flex: 1 1 20%; /* Grow to fill space */
+      flex: 1 1 20%; 
       text-align: center;
       min-width: 80px;
   }
@@ -59,18 +59,11 @@
   td{background:#fff;border:1px solid var(--muted);padding:10px 8px;font-size:14px}
   .right{text-align:right}
   
-  /* History Badges - COLORS FIXED */
+  /* History Badges */
   .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
-  .badge.expense{
-    background:rgba(239,68,68,.12);
-    color:#b91c1c;
-    border:1px solid rgba(239,68,68,.35);
-  }
-  .badge.payment{
-    background:rgba(34,197,94,.12);
-    color:#065f46;
-    border:1px solid rgba(34,197,94,.35);
-  }
+  .badge.expense{ background:rgba(239,68,68,.12); color:#b91c1c; border:1px solid rgba(239,68,68,.35); }
+  .badge.payment{ background:rgba(34,197,94,.12); color:#065f46; border:1px solid rgba(34,197,94,.35); }
+  .badge.danger { background: #ef4444; color: white; border:none; cursor: pointer; }
 
   /* Balances & Totals */
   #balances, #totals { display:grid; gap:10px; }
@@ -79,21 +72,15 @@
   .line{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
   .amt-pos{color:#22c55e;font-weight:700} .amt-neg{color:#ef4444;font-weight:700}
   
-  /* Totals-by-Person specific styling */
+  /* Totals styling */
   .rowline { display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:13px; margin-bottom:4px; }
   .rowline b { min-width:8ch; text-align:right; }
   
   /* Weeks Coloring */
-  .mini .rowline:nth-of-type(1) span{color:#ef4444;} /* 1st week */
-  .mini .rowline:nth-of-type(2) span{color:#f59e0b;} /* 2nd week */
-  .mini .rowline:nth-of-type(3) span{color:#10b981;} /* 3rd week */
-  .mini .rowline:nth-of-type(4) span{color:#3b82f6;} /* 4th week */
-  .mini .rowline:nth-of-type(5) span{color:#6d28d9;} /* This month */
-  .mini .rowline:nth-of-type(6) span{color:#0ea5e9;} /* Last Month */
-  .mini .rowline:nth-of-type(7) span{color:#64748b;} /* 2nd Last Month */
-
-  /* Delete Button */
-  .badge.danger { background: #ef4444; color: white; border:none; cursor: pointer; }
+  .mini .rowline:nth-of-type(1) span{color:#ef4444;} .mini .rowline:nth-of-type(2) span{color:#f59e0b;} 
+  .mini .rowline:nth-of-type(3) span{color:#10b981;} .mini .rowline:nth-of-type(4) span{color:#3b82f6;} 
+  .mini .rowline:nth-of-type(5) span{color:#6d28d9;} .mini .rowline:nth-of-type(6) span{color:#0ea5e9;} 
+  .mini .rowline:nth-of-type(7) span{color:#64748b;}
   </style>
 </head>
 <body>
@@ -111,7 +98,7 @@
         </select>
         <input id="loginPin" type="tel" maxlength="6" placeholder="******" />
         <button id="loginBtn" class="primary">Unlock App</button>
-        <p id="loginError" style="color:red;font-size:13px;display:none;margin-top:10px;">Incorrect PIN</p>
+        <p id="loginError" style="color:red;font-size:13px;display:none;margin-top:10px;"></p>
       </div>
 
       <div id="main-app" style="display:none">
@@ -190,23 +177,47 @@
   const db = getFirestore(app);
   const txCol = collection(db, 'transactions');
   
-  // DOM ELEMENTS
   const $ = s => document.querySelector(s);
   const el = (t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h)e.innerHTML=h;return e};
 
   // --- AUTHENTICATION LOGIC ---
-  
-  $('#loginBtn').onclick = () => {
-    const name = $('#loginName').value;
-    const pin = $('#loginPin').value;
-    const email = `${name}@group.app`; 
-    
-    signInWithEmailAndPassword(auth, email, pin)
-      .catch(e => {
-        $('#loginError').style.display = 'block';
-        console.error(e);
-      });
-  };
+  const loginBtn = $('#loginBtn');
+  const errorMsg = $('#loginError');
+
+  // Use addEventListener for safety
+  if(loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      const name = $('#loginName').value;
+      const pin = $('#loginPin').value;
+      const email = `${name}@group.app`; 
+      
+      // UI Feedback: Show user something is happening
+      loginBtn.textContent = "Unlocking...";
+      loginBtn.disabled = true;
+      errorMsg.style.display = 'none';
+
+      signInWithEmailAndPassword(auth, email, pin)
+        .catch(e => {
+          // ERROR HANDLER: Reset button and show error
+          loginBtn.textContent = "Unlock App";
+          loginBtn.disabled = false;
+          errorMsg.style.display = 'block';
+          
+          // Friendly Error Messages
+          if(e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+            errorMsg.textContent = "Wrong PIN! Please try again.";
+            alert("Wrong PIN! Please try again.");
+          } else if (e.code === 'auth/user-not-found') {
+             errorMsg.textContent = "User not found. Did you create this user in Firebase Console?";
+             alert("Error: User not found in Firebase. Check 'Authentication' tab in Firebase Console.");
+          } else {
+             errorMsg.textContent = "Error: " + e.message;
+             alert("Error: " + e.message);
+          }
+          console.error(e);
+        });
+    });
+  }
 
   $('#logoutBtn').onclick = () => signOut(auth);
 
@@ -217,6 +228,7 @@
       const name = user.email.split('@')[0];
       $('#user-greeting').textContent = `Hi, ${name.charAt(0).toUpperCase() + name.slice(1)}`;
       $('#loginPin').value = ''; 
+      if(loginBtn) { loginBtn.textContent = "Unlock App"; loginBtn.disabled = false; } // Reset button
       startApp(); 
     } else {
       $('#login-screen').style.display = 'block';
@@ -251,7 +263,9 @@
       calculateBalances(txs);
       calculateTotals(txs); 
     }, (err) => {
-      alert("Error: You probably don't have permission. Did you log in?");
+      // If data fetch fails (e.g. permission rules)
+      console.error(err);
+      alert("Login successful, but cannot read data. Check your Firestore Security Rules.");
     });
   }
 
@@ -268,7 +282,7 @@
       await addDoc(txCol, {type:'Expense', amount:amt, paidBy:who, splitBetween:split, description:desc, date:new Date().toISOString(), createdAt:serverTimestamp()});
       $('#amount').value=''; $('#desc').value=''; 
       document.querySelectorAll('.pill.active').forEach(b=>b.classList.remove('active'));
-    } catch(e) { alert('Permission Denied'); }
+    } catch(e) { alert('Permission Denied: ' + e.message); }
   };
 
   // Add Payment
@@ -279,4 +293,143 @@
     try {
       await addDoc(txCol, {type:'Payment', amount:amt, from:f, to:t, date:new Date().toISOString(), createdAt:serverTimestamp()});
       $('#payAmount').value='';
-    } catch(e) { alert('
+    } catch(e) { alert('Permission Denied: ' + e.message); }
+  };
+
+  // Render History
+  function renderHistory(txs) {
+    const tbody = $('#historyTable tbody'); tbody.innerHTML = '';
+    tbody.onclick = async (e) => {
+       if(e.target.classList.contains('danger')) {
+         if(confirm('Delete?')) {
+            try { await deleteDoc(doc(db,'transactions',e.target.dataset.id)); }
+            catch(err){ alert('Permission Denied'); }
+         }
+       }
+    };
+    txs.forEach(t => {
+       const d = t.date ? t.date.slice(0,10) : '';
+       const isExp = t.type === 'Expense';
+       const badge = isExp 
+        ? '<span class="badge expense">Expense</span>' 
+        : '<span class="badge payment">Payment</span>';
+       const desc = t.description || (isExp ? 'Expense' : 'Payment');
+       
+       const who = isExp 
+         ? `${t.paidBy}<br><span style="font-size:11px;color:#64748b">Split: ${(t.splitBetween||[]).join(', ')}</span>`
+         : `${t.from} → ${t.to}`;
+
+       const tr = el('tr','',`
+         <td>${d}</td>
+         <td>${badge}<br><span style="font-size:12px">${desc}</span></td>
+         <td class="right" style="font-weight:bold">${CURRENCY}${t.amount}</td>
+         <td>${who}</td>
+         <td><button class="badge danger" data-id="${t.id}">X</button></td>
+       `);
+       tbody.appendChild(tr);
+    });
+  }
+
+  // Calculate Balances 
+  function calculateBalances(txs) {
+     const idx = Object.fromEntries(PEOPLE.map((p,i)=>[p,i]));
+     const owes = Array.from({length:4},()=>Array(4).fill(0));
+     txs.slice().reverse().forEach(t => {
+        if(t.type==='Expense') {
+           const inc = (t.splitBetween||[]).filter(x=>PEOPLE.includes(x));
+           if(!inc.length) return;
+           const payerI = idx[t.paidBy];
+           const share = t.amount / inc.length;
+           inc.forEach(name => {
+              const owerI = idx[name];
+              if(owerI !== payerI) owes[owerI][payerI] += share;
+           });
+        } else { 
+           const f = idx[t.from], to = idx[t.to];
+           if(f!=null && to!=null) owes[f][to] -= t.amount;
+        }
+     });
+
+     const box = $('#balances'); box.innerHTML = '';
+     PEOPLE.forEach((p, i) => {
+        const card = el('div','mini',`<h4>${p}</h4>`);
+        PEOPLE.forEach((other, j) => {
+           if(i===j) return;
+           const net = owes[i][j] - owes[j][i];
+           if(Math.abs(net) > 0.1) {
+              const color = net > 0 ? 'amt-neg' : 'amt-pos';
+              const text = net > 0 ? `Owes ${other}` : `${other} owes me`;
+              card.appendChild(el('div','line',`${text} <span class="${color}">${CURRENCY}${Math.abs(net).toFixed(2)}</span>`));
+           }
+        });
+        box.appendChild(card);
+     });
+  }
+
+  // Calculate Totals (Weeks, Months)
+  function calculateTotals(txs) {
+    const byPerson = Object.fromEntries(PEOPLE.map(p => [p, { w1:0, w2:0, w3:0, w4:0, month:0, lastMonth:0, prev2Month:0 }]));
+    
+    const today = new Date();
+    const y = today.getFullYear(), m = today.getMonth();
+    const startThisMonth = new Date(y, m, 1);
+    const startNextMonth = new Date(y, m + 1, 1);
+    const startLastMonth = new Date(y, m - 1, 1);
+    const startPrev2Month = new Date(y, m - 2, 1);
+
+    const weekOfMonth = (d) => { const day = d.getDate(); return day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4; };
+
+    txs.forEach(t => {
+      if (t.type !== 'Expense') return;
+      const when = new Date(t.date || Date.now());
+      const amt = Number(t.amount) || 0;
+      const inc = (t.splitBetween||[]).filter(n => PEOPLE.includes(n));
+      
+      if (inc.length === 0 || !isFinite(amt) || amt <= 0) return;
+      
+      const share = amt / inc.length;
+      
+      inc.forEach(name => {
+        if (when >= startThisMonth && when < startNextMonth) {
+          const w = weekOfMonth(when);
+          byPerson[name][`w${w}`] += share;
+          byPerson[name].month += share;
+        }
+        if (when >= startLastMonth && when < startThisMonth) {
+          byPerson[name].lastMonth += share;
+        }
+        if (when >= startPrev2Month && when < startLastMonth) {
+          byPerson[name].prev2Month += share;
+        }
+      });
+    });
+
+    const totals = $('#totals'); totals.innerHTML = '';
+    PEOPLE.forEach(p => {
+      const d = byPerson[p];
+      const card = el('div','mini');
+      card.innerHTML = `
+        <h4>${p}</h4>
+        <div class="rowline"><span>1st week:</span><b>${CURRENCY}${d.w1.toFixed(2)}</b></div>
+        <div class="rowline"><span>2nd week:</span><b>${CURRENCY}${d.w2.toFixed(2)}</b></div>
+        <div class="rowline"><span>3rd week:</span><b>${CURRENCY}${d.w3.toFixed(2)}</b></div>
+        <div class="rowline"><span>4th week:</span><b>${CURRENCY}${d.w4.toFixed(2)}</b></div>
+        <div class="rowline"><span>This month:</span><b>${CURRENCY}${d.month.toFixed(2)}</b></div>
+        <div class="rowline"><span>Last Month:</span><b>${CURRENCY}${d.lastMonth.toFixed(2)}</b></div>
+        <div class="rowline"><span>2nd Last Month:</span><b>${CURRENCY}${d.prev2Month.toFixed(2)}</b></div>
+      `;
+      totals.appendChild(card);
+    });
+  }
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+     b.classList.add('active');
+     document.querySelectorAll('.tabview').forEach(v=>v.style.display='none');
+     $('#tab-'+b.dataset.tab).style.display='block';
+  });
+
+</script>
+</body>
+</html>
