@@ -164,7 +164,7 @@
         <div id="tab-history" class="tabview" style="display:none">
           <div id="admin-member-panel" class="card" style="display:none">
             <h3>Admin: Member Management</h3>
-            <p class="admin-note">Only islam@group.app can see and use this section. Add the member name here, then create the matching @group.app login in Firebase Authentication.</p>
+            <p class="admin-note">Only islam@group.app can see and use this section. Add the member name here, then create the matching @group.app login in Firebase Authentication. Removing a member will ask whether to hide the member from future entries or delete all transactions involving that member.</p>
             <div class="row">
               <input id="newMemberName" placeholder="New member name, e.g. Ali" />
               <button id="addMemberBtn" class="primary">Add New Member</button>
@@ -442,25 +442,77 @@
   async function removeMember(name) {
     if (!isAdminUser()) return alert('Only islam@group.app can remove members.');
 
-    const usedInHistory = currentTxs.some(t =>
+    const affectedTxs = currentTxs.filter(t =>
       t.paidBy === name ||
       t.from === name ||
       t.to === name ||
       (Array.isArray(t.splitBetween) && t.splitBetween.includes(name))
     );
 
-    if (usedInHistory) {
-      return alert(`${name} cannot be removed because this member appears in existing transaction history.`);
+    const memberRef = doc(db, 'members', safeMemberId(name));
+
+    if (!affectedTxs.length) {
+      if (!confirm(`Remove ${name} from the app? No existing transactions use this member.`)) return;
+      try {
+        await deleteDoc(memberRef);
+      } catch(e) {
+        console.error(e);
+        alert('Could not remove member. Check Firestore Security Rules for /members.');
+      }
+      return;
     }
 
-    if (!confirm(`Remove ${name}?`)) return;
+    const choice = prompt(
+      `${name} appears in ${affectedTxs.length} existing transaction(s).\n\n` +
+      `Type 1 to remove only the member name from future app lists/dropdowns. Old transactions will stay in History.\n\n` +
+      `Type 2 to remove the member AND permanently delete all old transactions involving this member.\n\n` +
+      `Cancel to do nothing.`
+    );
 
-    try {
-      await deleteDoc(doc(db, 'members', safeMemberId(name)));
-    } catch(e) {
-      console.error(e);
-      alert('Could not remove member. Check Firestore Security Rules for /members.');
+    if (choice === null) return;
+
+    if (choice.trim() === '1') {
+      if (!confirm(
+        `Confirm option 1:\n\n` +
+        `${name} will be removed from Add Expense, Pay Back, split tabs, and member lists.\n` +
+        `Old transactions involving ${name} will remain visible in History and will NOT be deleted.`
+      )) return;
+
+      try {
+        await deleteDoc(memberRef);
+        alert(`${name} was removed from future app lists. Old transactions were kept.`);
+      } catch(e) {
+        console.error(e);
+        alert('Could not remove member. Check Firestore Security Rules for /members.');
+      }
+      return;
     }
+
+    if (choice.trim() === '2') {
+      const finalCheck = prompt(
+        `DANGER: This will permanently delete ${affectedTxs.length} transaction(s) involving ${name}.\n\n` +
+        `This cannot be undone from the app. To continue, type exactly: DELETE ${name}`
+      );
+
+      if (finalCheck !== `DELETE ${name}`) {
+        alert('Deletion cancelled. The typed confirmation did not match.');
+        return;
+      }
+
+      try {
+        await Promise.all([
+          ...affectedTxs.map(t => deleteDoc(doc(db, 'transactions', t.id))),
+          deleteDoc(memberRef)
+        ]);
+        alert(`${name} and ${affectedTxs.length} related transaction(s) were deleted.`);
+      } catch(e) {
+        console.error(e);
+        alert('Could not delete member/transactions. Check Firestore Security Rules for /members and /transactions.');
+      }
+      return;
+    }
+
+    alert('Invalid choice. Type 1, type 2, or cancel.');
   }
 
   $('#addMemberBtn').onclick = addMember;
