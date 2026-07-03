@@ -99,13 +99,17 @@
       <div class="title">Group Expense Tracker</div>
 
       <div id="login-screen">
-        <p style="color:var(--sub);margin-bottom:20px;">Select your name and enter your PIN</p>
+        <p style="color:var(--sub);margin-bottom:20px;">Select or type your login name and enter your PIN</p>
         <select id="loginName">
           <option value="tayyab">Tayyab</option>
           <option value="islam">Islam</option>
           <option value="mahmur">Mahmur</option>
           <option value="guest">Guest</option>
+          <option value="shahriar">Shahriar</option>
+          <option value="alauddin">Alauddin</option>
+          <option value="__custom__">Other member...</option>
         </select>
+        <input id="customLoginName" type="text" placeholder="Type name, e.g. shahriar" style="display:none;letter-spacing:0;font-weight:600;text-align:left;" />
         <input id="loginPin" type="tel" maxlength="6" placeholder="******" />
         <button id="loginBtn" class="primary">Unlock App</button>
         <p id="loginError" style="color:red;font-size:13px;display:none;margin-top:10px;"></p>
@@ -158,20 +162,20 @@
         </div>
 
         <div id="tab-history" class="tabview" style="display:none">
-          <div class="card">
-            <h3>History</h3>
-            <div style="overflow-x:auto"><table id="historyTable"><thead><tr><th>Date</th><th>Type</th><th class="right">Amt</th><th>Details</th><th></th></tr></thead><tbody></tbody></table></div>
-          </div>
-
           <div id="admin-member-panel" class="card" style="display:none">
             <h3>Admin: Member Management</h3>
-            <p class="admin-note">Only islam@group.app can see and use this section.</p>
+            <p class="admin-note">Only islam@group.app can see and use this section. Add the member name here, then create the matching @group.app login in Firebase Authentication.</p>
             <div class="row">
               <input id="newMemberName" placeholder="New member name, e.g. Ali" />
               <button id="addMemberBtn" class="primary">Add New Member</button>
             </div>
-            <div class="label-text">Current Members:</div>
+            <div class="label-text">Current Members — use Remove beside a name:</div>
             <div id="memberList" class="member-list"></div>
+          </div>
+
+          <div class="card">
+            <h3>History</h3>
+            <div style="overflow-x:auto"><table id="historyTable"><thead><tr><th>Date</th><th>Type</th><th class="right">Amt</th><th>Details</th><th></th></tr></thead><tbody></tbody></table></div>
           </div>
         </div>
       </div>
@@ -210,6 +214,7 @@
   
   const $ = s => document.querySelector(s);
   const el = (t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h)e.innerHTML=h;return e};
+  const loginIdFromName = name => name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
 
   // --- AUTO LOCK LOGIC ---
   let idleTimer;
@@ -231,12 +236,31 @@
   // --- AUTHENTICATION LOGIC ---
   const loginBtn = $('#loginBtn');
   const errorMsg = $('#loginError');
+  const loginNameSelect = $('#loginName');
+  const customLoginName = $('#customLoginName');
+
+  if(loginNameSelect) {
+    loginNameSelect.addEventListener('change', () => {
+      const custom = loginNameSelect.value === '__custom__';
+      customLoginName.style.display = custom ? 'block' : 'none';
+      if (custom) customLoginName.focus();
+    });
+  }
 
   if(loginBtn) {
     loginBtn.addEventListener('click', () => {
-      const name = $('#loginName').value;
+      const selectedName = $('#loginName').value;
+      const typedName = $('#customLoginName').value;
+      const rawName = selectedName === '__custom__' ? typedName : selectedName;
+      const name = loginIdFromName(rawName);
       const pin = $('#loginPin').value;
-      const email = `${name}@group.app`; 
+      const email = `${name}@group.app`;
+
+      if (!name) {
+        errorMsg.textContent = 'Enter a login name.';
+        errorMsg.style.display = 'block';
+        return;
+      }
       
       loginBtn.textContent = "Unlocking...";
       loginBtn.disabled = true;
@@ -305,7 +329,7 @@
   }
 
   function safeMemberId(name) {
-    return name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    return loginIdFromName(name);
   }
 
   async function seedDefaultMembersIfEmpty() {
