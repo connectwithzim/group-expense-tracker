@@ -84,6 +84,13 @@
   .mini .rowline:nth-of-type(3) span{color:#10b981;} .mini .rowline:nth-of-type(4) span{color:#3b82f6;} 
   .mini .rowline:nth-of-type(5) span{color:#6d28d9;} .mini .rowline:nth-of-type(6) span{color:#0ea5e9;} 
   .mini .rowline:nth-of-type(7) span{color:#64748b;}
+
+  /* Admin Member Management */
+  #admin-member-panel { margin-top:16px; border-color:rgba(109,40,217,.35); background:#faf5ff; }
+  .member-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .member-chip { display:flex; align-items:center; gap:8px; width:auto; padding:8px 10px; border-radius:999px; border:1px solid var(--muted); background:#fff; font-size:13px; font-weight:600; }
+  .member-chip button { width:auto; padding:4px 8px; border-radius:999px; border:none; background:var(--danger); color:#fff; font-size:12px; cursor:pointer; }
+  .admin-note { color:var(--sub); font-size:12px; margin:6px 0 12px; line-height:1.4; }
   </style>
 </head>
 <body>
@@ -155,6 +162,17 @@
             <h3>History</h3>
             <div style="overflow-x:auto"><table id="historyTable"><thead><tr><th>Date</th><th>Type</th><th class="right">Amt</th><th>Details</th><th></th></tr></thead><tbody></tbody></table></div>
           </div>
+
+          <div id="admin-member-panel" class="card" style="display:none">
+            <h3>Admin: Member Management</h3>
+            <p class="admin-note">Only islam@group.app can see and use this section.</p>
+            <div class="row">
+              <input id="newMemberName" placeholder="New member name, e.g. Ali" />
+              <button id="addMemberBtn" class="primary">Add New Member</button>
+            </div>
+            <div class="label-text">Current Members:</div>
+            <div id="memberList" class="member-list"></div>
+          </div>
         </div>
       </div>
 
@@ -164,7 +182,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
   import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
-  import { getFirestore, collection, addDoc, getDocs, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js';
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js';
 
   // CONFIGURATION
   const firebaseConfig = {
@@ -177,7 +195,9 @@
     measurementId: "G-0HV7FPY7ME"
   };
 
-  const PEOPLE = ['Tayyab','Islam','Mahmur','Guest'];
+  const DEFAULT_PEOPLE = ['Tayyab','Islam','Mahmur','Guest'];
+  let PEOPLE = [...DEFAULT_PEOPLE];
+  const ADMIN_EMAIL = 'islam@group.app';
   const CURRENCY = '₺';
   const AUTO_LOCK_MS = 5 * 60 * 1000; // 5 Minutes in milliseconds
 
@@ -186,6 +206,7 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
   const txCol = collection(db, 'transactions');
+  const membersCol = collection(db, 'members');
   
   const $ = s => document.querySelector(s);
   const el = (t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h)e.innerHTML=h;return e};
@@ -266,14 +287,49 @@
       $('#balances').innerHTML = '';
       if(idleTimer) clearTimeout(idleTimer); // Stop timer
       if(unsubscribe) unsubscribe();
+      if(unsubscribeMembers) unsubscribeMembers();
     }
   });
 
   // --- APP LOGIC ---
 
   let unsubscribe;
+  let unsubscribeMembers;
 
-  function startApp() {
+  function isAdminUser() {
+    return auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
+  }
+
+  function safeMemberId(name) {
+    return name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  }
+
+  async function seedDefaultMembersIfEmpty() {
+    const snap = await getDocs(membersCol);
+    if (!snap.empty) return;
+    await Promise.all(DEFAULT_PEOPLE.map(name =>
+      setDoc(doc(db, 'members', safeMemberId(name)), { name, createdAt: serverTimestamp() })
+    ));
+  }
+
+  function startMembersListener() {
+    if (unsubscribeMembers) unsubscribeMembers();
+    unsubscribeMembers = onSnapshot(membersCol, (snap) => {
+      const names = [];
+      snap.forEach(d => {
+        const name = (d.data().name || '').trim();
+        if (name) names.push(name);
+      });
+      PEOPLE = names.length ? names.sort((a,b)=>a.localeCompare(b)) : [...DEFAULT_PEOPLE];
+      renderMemberControls();
+      populateMemberInputs();
+    }, (err) => {
+      console.error(err);
+      alert('Cannot load members. Check your Firestore Security Rules.');
+    });
+  }
+
+  function populateMemberInputs() {
     // Restored descriptive text in dropdowns
     $('#paidBy').innerHTML = PEOPLE.map(p=>`<option value="${p}">Who Paid: ${p}</option>`).join('');
     $('#from').innerHTML = PEOPLE.map(p=>`<option value="${p}">From: ${p}</option>`).join('');
