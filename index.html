@@ -285,6 +285,9 @@
       $('#main-app').style.display = 'none';
       $('#historyTable tbody').innerHTML = ''; 
       $('#balances').innerHTML = '';
+      $('#totals').innerHTML = '';
+      $('#memberList').innerHTML = '';
+      $('#admin-member-panel').style.display = 'none';
       if(idleTimer) clearTimeout(idleTimer); // Stop timer
       if(unsubscribe) unsubscribe();
       if(unsubscribeMembers) unsubscribeMembers();
@@ -295,6 +298,7 @@
 
   let unsubscribe;
   let unsubscribeMembers;
+  let currentTxs = [];
 
   function isAdminUser() {
     return auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
@@ -342,18 +346,103 @@
        $('#splitBetween').appendChild(b);
     });
 
+  }
+
+
+  async function startApp() {
+    const admin = isAdminUser();
+    $('#admin-member-panel').style.display = admin ? 'block' : 'none';
+
+    // Seed the member list only when the admin logs in. This avoids permission errors for normal users
+    // if your Firestore rules allow only islam@group.app to edit /members.
+    if (admin) {
+      try { await seedDefaultMembersIfEmpty(); }
+      catch (e) { console.error('Could not seed default members:', e); }
+    }
+
+    startMembersListener();
+    startTransactionsListener();
+  }
+
+  function startTransactionsListener() {
     if(unsubscribe) unsubscribe();
     unsubscribe = onSnapshot(query(txCol, orderBy('createdAt','desc')), (snap) => {
-      const txs = [];
-      snap.forEach(d => txs.push({id:d.id, ...d.data()}));
-      renderHistory(txs);
-      calculateBalances(txs);
-      calculateTotals(txs); 
+      currentTxs = [];
+      snap.forEach(d => currentTxs.push({id:d.id, ...d.data()}));
+      renderHistory(currentTxs);
+      calculateBalances(currentTxs);
+      calculateTotals(currentTxs);
     }, (err) => {
       console.error(err);
-      alert("Login successful, but cannot read data. Check your Firestore Security Rules.");
+      alert("Login successful, but cannot read data. Check your Firestore Security Rules for the transactions collection.");
     });
   }
+
+  function renderMemberControls() {
+    const panel = $('#admin-member-panel');
+    const list = $('#memberList');
+    if (!panel || !list) return;
+
+    panel.style.display = isAdminUser() ? 'block' : 'none';
+    list.innerHTML = '';
+
+    PEOPLE.forEach(name => {
+      const chip = el('div', 'member-chip');
+      const label = el('span', '', name);
+      const removeBtn = el('button', '', 'Remove');
+      removeBtn.type = 'button';
+      removeBtn.onclick = () => removeMember(name);
+      chip.appendChild(label);
+      chip.appendChild(removeBtn);
+      list.appendChild(chip);
+    });
+  }
+
+  async function addMember() {
+    if (!isAdminUser()) return alert('Only islam@group.app can add members.');
+
+    const input = $('#newMemberName');
+    const name = input.value.trim().replace(/\s+/g, ' ');
+    if (!name) return alert('Enter a member name.');
+    if (PEOPLE.some(p => p.toLowerCase() === name.toLowerCase())) return alert('This member already exists.');
+
+    try {
+      await setDoc(doc(db, 'members', safeMemberId(name)), { name, createdAt: serverTimestamp() });
+      input.value = '';
+    } catch(e) {
+      console.error(e);
+      alert('Could not add member. Check Firestore Security Rules for /members.');
+    }
+  }
+
+  async function removeMember(name) {
+    if (!isAdminUser()) return alert('Only islam@group.app can remove members.');
+
+    const usedInHistory = currentTxs.some(t =>
+      t.paidBy === name ||
+      t.from === name ||
+      t.to === name ||
+      (Array.isArray(t.splitBetween) && t.splitBetween.includes(name))
+    );
+
+    if (usedInHistory) {
+      return alert(`${name} cannot be removed because this member appears in existing transaction history.`);
+    }
+
+    if (!confirm(`Remove ${name}?`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'members', safeMemberId(name)));
+    } catch(e) {
+      console.error(e);
+      alert('Could not remove member. Check Firestore Security Rules for /members.');
+    }
+  }
+
+  $('#addMemberBtn').onclick = addMember;
+  $('#newMemberName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addMember();
+  });
 
   // Add Expense
   $('#addBtn').onclick = async () => {
@@ -419,7 +508,7 @@
   // Calculate Balances 
   function calculateBalances(txs) {
      const idx = Object.fromEntries(PEOPLE.map((p,i)=>[p,i]));
-     const owes = Array.from({length:4},()=>Array(4).fill(0));
+     const owes = Array.from({length:PEOPLE.length},()=>Array(PEOPLE.length).fill(0));
      txs.slice().reverse().forEach(t => {
         if(t.type==='Expense') {
            const inc = (t.splitBetween||[]).filter(x=>PEOPLE.includes(x));
