@@ -90,6 +90,8 @@
   .member-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .member-chip { display:flex; align-items:center; gap:8px; width:auto; padding:8px 10px; border-radius:999px; border:1px solid var(--muted); background:#fff; font-size:13px; font-weight:600; }
   .member-chip button { width:auto; padding:4px 8px; border-radius:999px; border:none; background:var(--danger); color:#fff; font-size:12px; cursor:pointer; }
+  .member-chip.inactive { opacity:.65; background:#f8fafc; }
+  .member-chip .status { color:var(--sub); font-size:11px; font-weight:500; }
   .admin-note { color:var(--sub); font-size:12px; margin:6px 0 12px; line-height:1.4; }
   </style>
 </head>
@@ -164,7 +166,7 @@
         <div id="tab-history" class="tabview" style="display:none">
           <div id="admin-member-panel" class="card" style="display:none">
             <h3>Admin: Member Management</h3>
-            <p class="admin-note">Only islam@group.app can see and use this section. Add the member name here, then create the matching @group.app login in Firebase Authentication. Removing a member will ask whether to hide the member from future entries or delete all transactions involving that member.</p>
+            <p class="admin-note">Only islam@group.app can see and use this section. Removing a member only deactivates them for future entries; old History records are kept. Add the member name here, then create the matching @group.app login in Firebase Authentication. Removing a member will ask whether to hide the member from future entries or delete all transactions involving that member.</p>
             <div class="row">
               <input id="newMemberName" placeholder="New member name, e.g. Ali" />
               <button id="addMemberBtn" class="primary">Add New Member</button>
@@ -323,6 +325,7 @@
   let unsubscribe;
   let unsubscribeMembers;
   let currentTxs = [];
+  let ALL_MEMBERS = [];
 
   function isAdminUser() {
     return auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
@@ -336,19 +339,35 @@
     const snap = await getDocs(membersCol);
     if (!snap.empty) return;
     await Promise.all(DEFAULT_PEOPLE.map(name =>
-      setDoc(doc(db, 'members', safeMemberId(name)), { name, createdAt: serverTimestamp() })
+      setDoc(doc(db, 'members', safeMemberId(name)), { name, active: true, createdAt: serverTimestamp() })
     ));
   }
 
   function startMembersListener() {
     if (unsubscribeMembers) unsubscribeMembers();
     unsubscribeMembers = onSnapshot(membersCol, (snap) => {
-      const names = [];
+      const members = [];
       snap.forEach(d => {
-        const name = (d.data().name || '').trim();
-        if (name) names.push(name);
+        const data = d.data();
+        const name = (data.name || '').trim();
+        if (name) members.push({ id: d.id, name, active: data.active !== false });
       });
-      PEOPLE = names.length ? names.sort((a,b)=>a.localeCompare(b)) : [...DEFAULT_PEOPLE];
+
+      ALL_MEMBERS = members.sort((a,b)=>a.name.localeCompare(b.name));
+      const activeNames = ALL_MEMBERS.filter(m => m.active).map(m => m.name);
+      PEOPLE = ALL_MEMBERS.length ? activeNames : [...DEFAULT_PEOPLE];
+
+      // If a deactivated member still has a Firebase Auth account, this stops them
+      // from using the app after login. To fully block login, also disable/delete
+      // that Auth user in Firebase Authentication.
+      const currentEmailName = auth.currentUser ? auth.currentUser.email.split('@')[0] : '';
+      const activeLoginIds = new Set(PEOPLE.map(p => safeMemberId(p)));
+      if (auth.currentUser && !isAdminUser() && !activeLoginIds.has(currentEmailName)) {
+        alert('Your member access is inactive. Contact the admin.');
+        signOut(auth);
+        return;
+      }
+
       renderMemberControls();
       populateMemberInputs();
     }, (err) => {
@@ -410,12 +429,16 @@
     panel.style.display = isAdminUser() ? 'block' : 'none';
     list.innerHTML = '';
 
-    PEOPLE.forEach(name => {
+    const membersToShow = ALL_MEMBERS.length ? ALL_MEMBERS.filter(m => m.active) : PEOPLE.map(name => ({ name, active: true }));
+
+    membersToShow.forEach(member => {
+      const name = member.name;
       const chip = el('div', 'member-chip');
       const label = el('span', '', name);
-      const removeBtn = el('button', '', 'Remove');
+      const removeBtn = el('button', '', 'Remove from App');
       removeBtn.type = 'button';
-      removeBtn.onclick = () => removeMember(name);
+      removeBtn.title = 'Keeps old history, but removes this person from future dropdowns/tabs.';
+      removeBtn.onclick = () => deactivateMember(name);
       chip.appendChild(label);
       chip.appendChild(removeBtn);
       list.appendChild(chip);
@@ -428,10 +451,15 @@
     const input = $('#newMemberName');
     const name = input.value.trim().replace(/\s+/g, ' ');
     if (!name) return alert('Enter a member name.');
-    if (PEOPLE.some(p => p.toLowerCase() === name.toLowerCase())) return alert('This member already exists.');
+    if (PEOPLE.some(p => p.toLowerCase() === name.toLowerCase())) return alert('This member already exists and is active.');
 
     try {
-      await setDoc(doc(db, 'members', safeMemberId(name)), { name, createdAt: serverTimestamp() });
+      await setDoc(doc(db, 'members', safeMemberId(name)), {
+        name,
+        active: true,
+        createdAt: serverTimestamp(),
+        reactivatedAt: serverTimestamp()
+      }, { merge: true });
       input.value = '';
     } catch(e) {
       console.error(e);
@@ -439,7 +467,7 @@
     }
   }
 
-  async function removeMember(name) {
+  async function deactivateMember(name) {
     if (!isAdminUser()) return alert('Only islam@group.app can remove members.');
 
     const affectedTxs = currentTxs.filter(t =>
@@ -449,71 +477,33 @@
       (Array.isArray(t.splitBetween) && t.splitBetween.includes(name))
     );
 
-    const memberRef = doc(db, 'members', safeMemberId(name));
+    const message = affectedTxs.length
+      ? `${name} appears in ${affectedTxs.length} existing transaction(s).
 
-    if (!affectedTxs.length) {
-      if (!confirm(`Remove ${name} from the app? No existing transactions use this member.`)) return;
-      try {
-        await deleteDoc(memberRef);
-      } catch(e) {
-        console.error(e);
-        alert('Could not remove member. Check Firestore Security Rules for /members.');
-      }
-      return;
+` +
+        `This action will NOT delete those transactions.
+` +
+        `It will only remove ${name} from future Add Expense, Pay Back, and Split Between lists.
+
+` +
+        `Old History rows will still show ${name}. Continue?`
+      : `Remove ${name} from future app lists? No existing transactions use this member.`;
+
+    if (!confirm(message)) return;
+
+    try {
+      await setDoc(doc(db, 'members', safeMemberId(name)), {
+        name,
+        active: false,
+        deactivatedAt: serverTimestamp()
+      }, { merge: true });
+      alert(`${name} was removed from future app lists. Old transactions were kept.`);
+    } catch(e) {
+      console.error(e);
+      alert('Could not remove member from app lists. Check Firestore Security Rules for /members.');
     }
-
-    const choice = prompt(
-      `${name} appears in ${affectedTxs.length} existing transaction(s).\n\n` +
-      `Type 1 to remove only the member name from future app lists/dropdowns. Old transactions will stay in History.\n\n` +
-      `Type 2 to remove the member AND permanently delete all old transactions involving this member.\n\n` +
-      `Cancel to do nothing.`
-    );
-
-    if (choice === null) return;
-
-    if (choice.trim() === '1') {
-      if (!confirm(
-        `Confirm option 1:\n\n` +
-        `${name} will be removed from Add Expense, Pay Back, split tabs, and member lists.\n` +
-        `Old transactions involving ${name} will remain visible in History and will NOT be deleted.`
-      )) return;
-
-      try {
-        await deleteDoc(memberRef);
-        alert(`${name} was removed from future app lists. Old transactions were kept.`);
-      } catch(e) {
-        console.error(e);
-        alert('Could not remove member. Check Firestore Security Rules for /members.');
-      }
-      return;
-    }
-
-    if (choice.trim() === '2') {
-      const finalCheck = prompt(
-        `DANGER: This will permanently delete ${affectedTxs.length} transaction(s) involving ${name}.\n\n` +
-        `This cannot be undone from the app. To continue, type exactly: DELETE ${name}`
-      );
-
-      if (finalCheck !== `DELETE ${name}`) {
-        alert('Deletion cancelled. The typed confirmation did not match.');
-        return;
-      }
-
-      try {
-        await Promise.all([
-          ...affectedTxs.map(t => deleteDoc(doc(db, 'transactions', t.id))),
-          deleteDoc(memberRef)
-        ]);
-        alert(`${name} and ${affectedTxs.length} related transaction(s) were deleted.`);
-      } catch(e) {
-        console.error(e);
-        alert('Could not delete member/transactions. Check Firestore Security Rules for /members and /transactions.');
-      }
-      return;
-    }
-
-    alert('Invalid choice. Type 1, type 2, or cancel.');
   }
+
 
   $('#addMemberBtn').onclick = addMember;
   $('#newMemberName').addEventListener('keydown', (e) => {
